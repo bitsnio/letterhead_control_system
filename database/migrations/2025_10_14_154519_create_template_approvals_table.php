@@ -13,11 +13,12 @@ return new class extends Migration
     {
         Schema::create('template_approvals', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('template_id')->constrained('letterhead_templates');
-            $table->foreignId('approver_id')->constrained('users');
+            $table->foreignId('template_id')->constrained('letterhead_templates')->cascadeOnDelete();
+            $table->foreignId('approver_id')->constrained('users')->cascadeOnDelete();
+            $table->integer('level')->default(1);
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->text('comments')->nullable();
-            $table->timestamp('reviewed_at')->nullable();
+            $table->timestamp('actioned_at')->nullable();
             $table->timestamps();
         });
     }

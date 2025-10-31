@@ -7,42 +7,34 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class LetterheadInventory extends Model
 {
-    use HasFactory;
-
-    protected $table = 'letterhead_inventory';
+   use HasFactory;
 
     protected $fillable = [
-        'name',
-        'description',
-        'current_quantity',
-        'minimum_level',
-        'unit',
-        'cost_per_unit',
+        'batch_name',
+        'start_serial',
+        'end_serial',
+        'quantity',
+        'received_date',
         'supplier',
-        'last_restocked',
-        'is_active',
+        'notes',
     ];
 
     protected $casts = [
-        'last_restocked' => 'date',
-        'is_active' => 'boolean',
-        'cost_per_unit' => 'decimal:2',
+        'received_date' => 'date',
+        'start_serial' => 'integer',
+        'end_serial' => 'integer',
+        'quantity' => 'integer',
     ];
 
-    // Check if inventory is below minimum level
-    public function isLowStock(): bool
+    protected static function boot()
     {
-        return $this->current_quantity <= $this->minimum_level;
-    }
+        parent::boot();
 
-    // Get stock status
-    public function getStockStatusAttribute(): string
-    {
-        if ($this->current_quantity <= 0) {
-            return 'out_of_stock';
-        } elseif ($this->isLowStock()) {
-            return 'low_stock';
-        }
-        return 'in_stock';
+        static::saving(function ($letterhead) {
+            // Auto-calculate quantity based on serial range
+            if ($letterhead->start_serial && $letterhead->end_serial) {
+                $letterhead->quantity = ($letterhead->end_serial - $letterhead->start_serial) + 1;
+            }
+        });
     }
 }

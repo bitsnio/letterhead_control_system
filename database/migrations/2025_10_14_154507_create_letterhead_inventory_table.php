@@ -11,18 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('letterhead_inventory', function (Blueprint $table) {
+        Schema::create('letterhead_inventories', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->text('description')->nullable();
-            $table->integer('current_quantity')->default(0);
-            $table->integer('minimum_level')->default(0);
-            $table->string('unit')->default('pieces');
-            $table->decimal('cost_per_unit', 10, 2)->nullable();
+            $table->string('batch_name');
+            $table->integer('start_serial');
+            $table->integer('end_serial');
+            $table->integer('quantity');
+            $table->date('received_date');
             $table->string('supplier')->nullable();
-            $table->date('last_restocked')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
+            $table->text('notes')->nullable();
+            $table->timestamps();   
         });
     }
 
@@ -31,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('letterhead_inventory');
+        Schema::dropIfExists('letterhead_inventories');
     }
 };

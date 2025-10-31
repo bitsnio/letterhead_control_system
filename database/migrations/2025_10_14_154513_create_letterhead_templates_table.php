@@ -12,14 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('letterhead_templates', function (Blueprint $table) {
-            $table->id();
+           $table->id();
             $table->string('name');
             $table->text('description')->nullable();
-            $table->text('content'); // HTML content of the template
-            $table->string('template_file')->nullable(); // Path to template file
-            $table->enum('status', ['draft', 'pending_approval', 'approved', 'rejected'])->default('draft');
-            $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('approved_by')->nullable()->constrained('users');
+            $table->string('category')->nullable();
+            $table->longText('content');
+            $table->json('variables')->nullable();
+            $table->enum('approval_status', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
             $table->text('rejection_reason')->nullable();
             $table->boolean('is_active')->default(true);

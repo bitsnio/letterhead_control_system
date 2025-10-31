@@ -5,7 +5,9 @@ namespace App\Filament\Resources\LetterheadInventories\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms;
 
 class LetterheadInventoriesTable
 {
@@ -13,59 +15,53 @@ class LetterheadInventoriesTable
     {
         return $table
             ->columns([
-                \Filament\Tables\Columns\TextColumn::make('name')
+                Tables\Columns\TextColumn::make('batch_name')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->label('Batch Name'),
                 
-                \Filament\Tables\Columns\TextColumn::make('current_quantity')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('start_serial')
+                    ->sortable()
+                    ->label('Start Serial'),
                 
-                \Filament\Tables\Columns\TextColumn::make('minimum_level')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('end_serial')
+                    ->sortable()
+                    ->label('End Serial'),
                 
-                \Filament\Tables\Columns\TextColumn::make('unit')
-                    ->searchable(),
-                
-                \Filament\Tables\Columns\TextColumn::make('cost_per_unit')
-                    ->money('USD')
-                    ->sortable(),
-                
-                \Filament\Tables\Columns\TextColumn::make('supplier')
-                    ->searchable(),
-                
-                \Filament\Tables\Columns\TextColumn::make('last_restocked')
-                    ->date()
-                    ->sortable(),
-                
-                \Filament\Tables\Columns\IconColumn::make('is_active')
-                    ->boolean(),
-                
-                \Filament\Tables\Columns\TextColumn::make('stock_status')
+                Tables\Columns\TextColumn::make('quantity')
+                    ->sortable()
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'out_of_stock' => 'danger',
-                        'low_stock' => 'warning',
-                        'in_stock' => 'success',
-                    }),
+                    ->color('success')
+                    ->label('Quantity'),
+                
+                Tables\Columns\TextColumn::make('received_date')
+                    ->date()
+                    ->sortable()
+                    ->label('Received Date'),
+                
+                Tables\Columns\TextColumn::make('supplier')
+                    ->searchable()
+                    ->toggleable()
+                    ->label('Supplier'),
+                
+                Tables\Columns\TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->label('Created At'),
             ])
             ->filters([
-                \Filament\Tables\Filters\TernaryFilter::make('is_active'),
-                \Filament\Tables\Filters\SelectFilter::make('stock_status')
-                    ->options([
-                        'in_stock' => 'In Stock',
-                        'low_stock' => 'Low Stock',
-                        'out_of_stock' => 'Out of Stock',
-                    ]),
-            ])
-            ->recordActions([
-                EditAction::make(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
-    }
+                Tables\Filters\Filter::make('received_date')
+                    ->schema([
+                        Forms\Components\DatePicker::make('received_from'),
+                        Forms\Components\DatePicker::make('received_until'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['received_from'], fn ($q, $date) => $q->whereDate('received_date', '>=', $date))
+                            ->when($data['received_until'], fn ($q, $date) => $q->whereDate('received_date', '<=', $date));
+                    }),
+            ])->defaultSort('received_date', 'desc');
+}
+
 }
