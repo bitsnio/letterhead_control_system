@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\LetterheadTemplate;
 use Illuminate\Support\ServiceProvider;
+use App\Observers\PrintTemplateObserver;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +22,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        LetterheadTemplate::observe(PrintTemplateObserver::class);
     }
 }

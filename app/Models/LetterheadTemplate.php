@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Notifications\TemplateApproved;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+
+
 
 class LetterheadTemplate extends Model
 {
@@ -155,6 +158,20 @@ class LetterheadTemplate extends Model
                 'approved_by' => $user->id,
                 'approved_at' => now(),
             ]);
+            // Notify the creator
+            if ($this->createdBy) {
+                $this->createdBy->notify(
+                    new \App\Notifications\TemplateApproved($this)
+                );
+            }
+        } else {
+            // Notify next approver
+            $nextApproval = $this->getCurrentPendingApproval();
+            if ($nextApproval && $nextApproval->approver) {
+                $nextApproval->approver->notify(
+                    new \App\Notifications\TemplateAwaitingApproval($this)
+                );
+            }
         }
 
         return true;
@@ -181,6 +198,13 @@ class LetterheadTemplate extends Model
             'approval_status' => 'rejected',
             'rejection_reason' => $reason,
         ]);
+
+        // Notify the creator
+        if ($this->createdBy) {
+            $this->createdBy->notify(
+                new \App\Notifications\TemplateRejected($this, $reason)
+            );
+        }
 
         return true;
     }

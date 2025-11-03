@@ -8,6 +8,7 @@ use App\Filament\Resources\LetterheadTemplates\Schemas\LetterheadTemplateForm;
 use App\Filament\Resources\LetterheadTemplates\Pages\ListLetterheadTemplates;
 use App\Filament\Resources\LetterheadTemplates\Pages\ViewLetterheadTemplate;
 use App\Filament\Resources\LetterheadTemplates\Tables\LetterheadTemplatesTable;
+use App\Filament\Resources\TemplateApprovals\Pages\ListTemplateApprovals;
 use App\Models\LetterheadTemplate;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -56,8 +57,8 @@ class LetterheadTemplateResource extends Resource
             'create' => CreateLetterheadTemplate::route('/create'),
             'edit' => EditLetterheadTemplate::route('/{record}/edit'),
             'view' => ViewLetterheadTemplate::route('/{record}'),
-            'approve' => Pages\PendingApprovals::route('/{record}/approve'),
-            'print' => Pages\PrintPreview::route('/{record}/print'),
+            'approve' => ListTemplateApprovals::route('/{record}/approve'),
+            // 'print' => Pages\PrintPreview::route('/{record}/print'),
         ];
     }
 

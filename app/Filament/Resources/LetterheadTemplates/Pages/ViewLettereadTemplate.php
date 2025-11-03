@@ -9,6 +9,7 @@ use Filament\Infolists\Infolist;
 use Filament\Schemas\Components\Section;
 use Filament\Infolists;
 use Filament\Schemas\Schema;
+use DateTime;
 
 
 class ViewLetterheadTemplate extends ViewRecord
@@ -81,8 +82,15 @@ class ViewLetterheadTemplate extends ViewRecord
                             ->default('Not approved yet'),
                         Infolists\Components\TextEntry::make('approved_at')
                             ->label('Approved At')
-                            ->dateTime()
-                            ->default('Not approved yet'),
+                            // $state will be a DateTime object or null
+                            ->formatStateUsing(function ($state) {
+                                if ($state instanceof DateTime) {
+                                    // Use the built-in format method of the DateTime object
+                                    return $state->format('M d, Y H:i');
+                                }
+
+                                return 'Not approved yet';
+                            }),
                         Infolists\Components\TextEntry::make('rejection_reason')
                             ->label('Rejection Reason')
                             ->visible(fn($record) => $record->approval_status === 'rejected')
@@ -113,8 +121,7 @@ class ViewLetterheadTemplate extends ViewRecord
                                     ->default('No comments'),
                                 Infolists\Components\TextEntry::make('actioned_at')
                                     ->label('Actioned At')
-                                    ->dateTime()
-                                    ->default('Pending'),
+                                    ->formatStateUsing(fn($state): string => $state ? $state->toFormattedDateString() : 'Pending'),
                             ])
                             ->columns(5),
                     ]),

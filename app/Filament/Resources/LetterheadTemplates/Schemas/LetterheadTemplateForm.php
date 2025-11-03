@@ -103,7 +103,11 @@ class LetterheadTemplateForm
 
                         TextEntry::make('approved_at')
                             ->label('Approved At')
-                            ->state(fn($record) => $record?->approved_at?->format('M d, Y H:i') ?? 'Not approved yet'),
+                            ->state(function ($record): string {
+                                // Return a raw string immediately
+                                return $record?->approved_at?->format('M d, Y H:i') ?? 'Not approved yet';
+                            })
+                            ->dateTime(false),
                     ])
                     ->columns(2)
                     ->visible(fn($record) => $record !== null),
