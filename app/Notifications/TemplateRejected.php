@@ -35,7 +35,7 @@ class TemplateRejected extends Notification
             ->actions([
                 Action::make('view')
                     ->label('View Details')
-                    ->url(route('filament.admin.resources.print-templates.edit', ['record' => $this->template]))
+                    ->url(route('filament.admin.resources.letterhead-templates.edit', ['record' => $this->template]))
                     ->markAsRead(),
             ])
             ->getDatabaseMessage();

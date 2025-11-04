@@ -13,12 +13,8 @@ use App\Models\LetterheadTemplate;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use App\Filament\Pages;
-
-
-
+use App\Filament\Resources\LetterheadTemplates\Pages\ApproveLetterheadTemplate;
 
 class LetterheadTemplateResource extends Resource
 {
@@ -57,7 +53,7 @@ class LetterheadTemplateResource extends Resource
             'create' => CreateLetterheadTemplate::route('/create'),
             'edit' => EditLetterheadTemplate::route('/{record}/edit'),
             'view' => ViewLetterheadTemplate::route('/{record}'),
-            'approve' => ListTemplateApprovals::route('/{record}/approve'),
+            'approve' => ApproveLetterheadTemplate::route('/{record}/approve'),
             // 'print' => Pages\PrintPreview::route('/{record}/print'),
         ];
     }

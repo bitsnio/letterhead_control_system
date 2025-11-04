@@ -33,7 +33,7 @@ class TemplateApproved extends Notification
             ->actions([
                 Action::make('view')
                     ->label('View Template')
-                    ->url(route('filament.admin.resources.print-templates.view', ['record' => $this->template]))
+                    ->url(route('filament.admin.resources.letterhead-templates.view', ['record' => $this->template]))
                     ->markAsRead(),
             ])
             ->getDatabaseMessage();

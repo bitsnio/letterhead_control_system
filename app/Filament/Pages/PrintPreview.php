@@ -22,7 +22,7 @@ class PrintPreview extends Page
         $this->content = session('print_content', '');
         
         if (empty($this->content)) {
-            $this->redirect(route('filament.admin.resources.print-templates.index'));
+            $this->redirect(route('filament.admin.resources.letterhead-templates.index'));
         }
     }
 
@@ -39,7 +39,7 @@ class PrintPreview extends Page
                 ->label('Back')
                 ->icon('heroicon-o-arrow-left')
                 ->color('gray')
-                ->url(route('filament.admin.resources.print-templates.index')),
+                ->url(route('filament.admin.resources.letterhead-templates.index')),
         ];
     }
 

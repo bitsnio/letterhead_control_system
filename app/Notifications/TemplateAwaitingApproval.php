@@ -33,7 +33,7 @@ class TemplateAwaitingApproval extends Notification
             ->actions([
                 Action::make('review')
                     ->label('Review')
-                    ->url(route('filament.admin.resources.print-templates.approve', ['record' => $this->template]))
+                    ->url(route('filament.admin.resources.letterhead-templates.approve', ['record' => $this->template]))
                     ->markAsRead(),
             ])
             ->getDatabaseMessage();

@@ -114,7 +114,7 @@ class PendingApprovals extends Page implements HasTable
                     ->icon('heroicon-o-eye')
                     ->color('primary')
                     ->url(fn (LetterheadTemplate $record): string => 
-                        route('filament.admin.resources.print-templates.approve', ['record' => $record])
+                        route('filament.admin.resources.letterhead-templates.approve', ['record' => $record])
                     ),
             ])
             ->defaultSort('created_at', 'desc')

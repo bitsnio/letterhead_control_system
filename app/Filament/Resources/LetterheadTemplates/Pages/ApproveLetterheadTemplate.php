@@ -19,7 +19,7 @@ class ApproveLetterheadTemplate extends ViewRecord
 {
     protected static string $resource = LetterheadTemplateResource::class;
 
-    protected string $view = 'filament.resources.print-template-resource.pages.approve-print-template';
+    protected string $view = 'filament.resources.letterhead-template-resource.pages.approve-letterhead-template';
 
     public function infolist(Schema $infolist): Schema
     {
@@ -98,7 +98,7 @@ class ApproveLetterheadTemplate extends ViewRecord
                                 TextEntry::make('actioned_at')
                                     ->label('Actioned At')
                                     ->dateTime()
-                                    ->default('Pending'),
+                                    ->formatStateUsing(fn($state) => $state ? $state->format('Y-m-d H:i') : 'Pending'),
                             ])
                             ->columns(5),
                     ]),
@@ -173,11 +173,16 @@ class ApproveLetterheadTemplate extends ViewRecord
 
     public static function canAccess(array $parameters = []): bool
     {
+        //   dd($parameters);
+        if (! isset($parameters['record'])) {
+            return true; // ✅ allow initial route resolution
+        }
+
         $record = $parameters['record'] ?? null;
 
-        if (!$record) {
-            return false;
-        }
+        // if (!$record) {
+        //     return false;
+        // }
 
         // Only allow access if user can approve this template
         return $record->approval_status === 'pending' &&
