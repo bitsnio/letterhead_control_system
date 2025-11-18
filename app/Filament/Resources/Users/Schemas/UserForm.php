@@ -38,10 +38,10 @@ class UserForm
                     ->options([
                         'admin' => 'Administrator',
                         'manager' => 'Manager',
-                        'staff' => 'Staff',
-                        'printer' => 'Printer',
+                        'sm' => 'Senior Manager',
+                        'user' => 'User',
                     ])
-                    ->default('staff')
+                    ->default('user')
                     ->required(),
                 
                 \Filament\Forms\Components\Toggle::make('is_active')

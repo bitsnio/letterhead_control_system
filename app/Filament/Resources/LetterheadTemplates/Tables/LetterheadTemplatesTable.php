@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\LetterheadTemplates\Tables;
 
 use App\Filament\Resources\LetterheadInventories\LetterheadInventoryResource;
+use App\Filament\Resources\LetterheadTemplates\LetterheadTemplateResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -11,9 +12,12 @@ use Filament\Actions\ReplicateAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Tables\Table;
 use App\Models\LetterheadTemplate;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+
 
 use Filament\Notifications\Notification;
 
@@ -100,51 +104,47 @@ class LetterheadTemplatesTable
                     ->label('Active Status'),
             ])
             ->recordActions([
-                Action::make('print')
-                    ->icon('heroicon-o-printer')
-                    ->color('primary')
-                    ->label('Select for Print')
-                    // ->url(
-                    //     fn(LetterheadTemplate $record): string =>
-                    //     LetterheadInventoryResource::getUrl('print', ['record' => $record])
-                    // )
-                    ->visible(
-                        fn(LetterheadTemplate $record) =>
-                        $record->approval_status === 'approved' && $record->is_active
-                    ),
-
                 ViewAction::make(),
-
+                
                 EditAction::make()
-                    ->visible(
-                        fn(LetterheadTemplate $record) =>
-                        $record->approval_status === 'pending' ||
-                            $record->approval_status === 'rejected'
+                    ->visible(fn (LetterheadTemplate $record) => 
+                        $record->approval_status === 'pending' || 
+                        $record->approval_status === 'rejected'
                     ),
-
+                
                 ReplicateAction::make()
                     ->label('Duplicate')
                     ->excludeAttributes(['approval_status', 'approved_by', 'approved_at', 'rejection_reason'])
                     ->beforeReplicaSaved(function (LetterheadTemplate $replica): void {
                         $replica->name = $replica->name . ' (Copy)';
                     })
-                    ->visible(fn(LetterheadTemplate $record) => $record->approval_status === 'approved'),
-
+                    ->visible(fn (LetterheadTemplate $record) => $record->approval_status === 'approved'),
+                
                 DeleteAction::make()
-                    ->visible(
-                        fn(LetterheadTemplate $record) =>
+                    ->visible(fn (LetterheadTemplate $record) => 
                         $record->approval_status !== 'approved'
                     ),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    BulkAction::make('selectForPrint')
+                        ->label('Select for Print')
+                        ->icon('heroicon-o-printer')
+                        ->color('primary')
+                        ->action(function (Collection $records) {
+                            // Store selected template IDs in session
+                            session(['selected_templates_for_print' => $records->pluck('id')->toArray()]);
+                            
+                            return redirect()->route('filament.admin.pages.bulk-print');
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
-            // ->modifyQueryUsing(function (Builder $query) {
-            //     // Only show approved templates in the list
-            //     return $query->where('approval_status', 'approved');
-            // });
+            ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(function (Builder $query) {
+                // Only show approved and active templates in the list
+                return $query->where('approval_status', 'approved')
+                            ->where('is_active', true);
+            });
     }
 }

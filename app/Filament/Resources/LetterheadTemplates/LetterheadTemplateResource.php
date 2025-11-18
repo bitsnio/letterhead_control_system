@@ -7,6 +7,7 @@ use App\Filament\Resources\LetterheadTemplates\Pages\EditLetterheadTemplate;
 use App\Filament\Resources\LetterheadTemplates\Schemas\LetterheadTemplateForm;
 use App\Filament\Resources\LetterheadTemplates\Pages\ListLetterheadTemplates;
 use App\Filament\Resources\LetterheadTemplates\Pages\ViewLetterheadTemplate;
+use App\Filament\Resources\LetterheadTemplates\Pages\PrintLetterheadTemplate;
 use App\Filament\Resources\LetterheadTemplates\Tables\LetterheadTemplatesTable;
 use App\Filament\Resources\TemplateApprovals\Pages\ListTemplateApprovals;
 use App\Models\LetterheadTemplate;
@@ -54,7 +55,7 @@ class LetterheadTemplateResource extends Resource
             'edit' => EditLetterheadTemplate::route('/{record}/edit'),
             'view' => ViewLetterheadTemplate::route('/{record}'),
             'approve' => ApproveLetterheadTemplate::route('/{record}/approve'),
-            // 'print' => Pages\PrintPreview::route('/{record}/print'),
+            'print' => PrintLetterheadTemplate::route('/{record}/print'),
         ];
     }
 

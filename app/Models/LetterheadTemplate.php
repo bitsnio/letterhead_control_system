@@ -26,12 +26,14 @@ class LetterheadTemplate extends Model
         'approved_at',
         'rejection_reason',
         'is_active',
+        'print_margins'
     ];
 
     protected $casts = [
         'variables' => 'array',
         'is_active' => 'boolean',
         'approved_at' => 'datetime',
+        'print_margins'=>'array'
     ];
 
     protected static function boot()
@@ -98,23 +100,23 @@ class LetterheadTemplate extends Model
         // Level 2: Director
 
         return [
-            1 => $this->getManagerId(),
-            2 => $this->getDirectorId(),
+            1 => $this->getFirstLevel(),
+            2 => $this->getSecondLevel(),
         ];
     }
 
-    protected function getManagerId()
+    protected function getFirstLevel()
     {
         // Add logic to get manager ID
         // This is a placeholder - customize based on your needs
         return User::where('role', 'manager')->first()?->id ?? 1;
     }
 
-    protected function getDirectorId()
+    protected function getSecondLevel()
     {
         // Add logic to get director ID
         // This is a placeholder - customize based on your needs
-        return User::where('role', 'director')->first()?->id ?? 1;
+        return User::where('role', 'sm')->first()?->id ?? 2;
     }
 
     public function getCurrentPendingApproval(): ?TemplateApproval

@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LetterheadInventory extends Model
 {
-   use HasFactory;
+    use HasFactory;
 
     protected $fillable = [
         'batch_name',
@@ -36,5 +37,86 @@ class LetterheadInventory extends Model
                 $letterhead->quantity = ($letterhead->end_serial - $letterhead->start_serial) + 1;
             }
         });
+    }
+    public function serialUsages(): HasMany
+    {
+        return $this->hasMany(SerialUsage::class);
+    }
+
+    public function getUsedSerialsAttribute(): array
+    {
+        return $this->serialUsages()
+            ->pluck('serial_number')
+            ->toArray();
+    }
+
+    public function getAvailableSerialsAttribute(): array
+    {
+        $usedSerials = $this->usedSerials;
+        $allSerials = range($this->start_serial, $this->end_serial);
+
+        return array_diff($allSerials, $usedSerials);
+    }
+
+    public function hasAvailableSerials(int $quantity): bool
+    {
+        return count($this->availableSerials) >= $quantity;
+    }
+
+    public function getNextAvailableSerial(): ?int
+    {
+        $availableSerials = $this->availableSerials;
+        return !empty($availableSerials) ? min($availableSerials) : null;
+    }
+
+    public function validateSerialRange(int $startSerial, int $endSerial): array
+    {
+        $errors = [];
+
+        // Check if serials are within batch range
+        if ($startSerial < $this->start_serial || $endSerial > $this->end_serial) {
+            $errors[] = "Serial range must be between {$this->start_serial} and {$this->end_serial}";
+        }
+
+        // Check if start is less than or equal to end
+        if ($startSerial > $endSerial) {
+            $errors[] = "Start serial must be less than or equal to end serial";
+        }
+
+        // Check if any serial in range is already used
+        $requestedSerials = range($startSerial, $endSerial);
+        $usedSerials = $this->usedSerials;
+        $conflictingSerials = array_intersect($requestedSerials, $usedSerials);
+
+        if (!empty($conflictingSerials)) {
+            $errors[] = "Some serials are already used: " . implode(', ', $conflictingSerials);
+        }
+
+        return $errors;
+    }
+
+    public function allocateSerials(PrintJob $printJob, int $startSerial, int $endSerial): bool
+    {
+        $errors = $this->validateSerialRange($startSerial, $endSerial);
+
+        if (!empty($errors)) {
+            return false;
+        }
+
+        $serials = range($startSerial, $endSerial);
+
+        foreach ($serials as $serial) {
+            SerialUsage::create([
+                'letterhead_id' => $this->id,
+                'print_job_id' => $printJob->id,
+                'serial_number' => $serial,
+                'used_at' => now(),
+            ]);
+        }
+
+        // Update used quantity
+        $this->increment('used_quantity', count($serials));
+
+        return true;
     }
 }

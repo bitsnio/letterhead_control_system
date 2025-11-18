@@ -51,5 +51,15 @@ class UserSeeder extends Seeder
             'is_active' => true,
             'email_verified_at' => now(),
         ]);
+
+           // Create Printer User
+        \App\Models\User::create([
+            'name' => 'Muhamamd Haseeb',
+            'email' => 'haseeb@letterhead.com',
+            'password' => bcrypt('password'),
+            'role' => 'sm',
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
     }
 }
