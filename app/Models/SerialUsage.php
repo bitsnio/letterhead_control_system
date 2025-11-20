@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,10 +11,12 @@ class SerialUsage extends Model
     use HasFactory;
 
     protected $fillable = [
-        'letterhead_id',
+        'letterhead_inventory_id',
         'print_job_id',
         'serial_number',
         'used_at',
+        'scanned_copy', // Add this field
+        'notes', // Add this field
     ];
 
     protected $casts = [
@@ -29,5 +32,35 @@ class SerialUsage extends Model
     public function printJob(): BelongsTo
     {
         return $this->belongsTo(PrintJob::class);
+    }
+    public function canEditSerial(): bool
+    {
+        return $this->printJob &&
+            $this->printJob->status === 'completed' &&
+            empty($this->scanned_copy);
+    }
+
+    /**
+     * Check if scanned copy exists
+     */
+    public function getHasScannedCopyAttribute(): bool
+    {
+        return !empty($this->scanned_copy);
+    }
+
+    /**
+     * Scope for serials within a specific range
+     */
+    public function scopeInRange($query, $startSerial, $endSerial)
+    {
+        return $query->whereBetween('serial_number', [$startSerial, $endSerial]);
+    }
+
+    /**
+     * Scope for serials in a specific print job
+     */
+    public function scopeForPrintJob($query, $printJobId)
+    {
+        return $query->where('print_job_id', $printJobId);
     }
 }

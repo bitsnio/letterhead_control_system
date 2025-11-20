@@ -66,4 +66,23 @@ class PrintJob extends Model
     {
         $this->update(['status' => 'failed']);
     }
+
+    public function getSerialUsageStats(): array
+    {
+        $total = $this->quantity;
+        $withScans = $this->serialUsages()->whereNotNull('scanned_copy')->count();
+        $withoutScans = $total - $withScans;
+
+        return [
+            'total' => $total,
+            'with_scans' => $withScans,
+            'without_scans' => $withoutScans,
+            'completion_percentage' => $total > 0 ? round(($withScans / $total) * 100, 2) : 0,
+        ];
+    }
+
+    public function canEditSerials(): bool
+    {
+        return $this->status === 'completed';
+    }
 }

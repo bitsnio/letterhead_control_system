@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('letterhead_templates', function (Blueprint $table) {
-            $table->json('print_margins')->nullable()->after('content');
+        Schema::table('serial_usages', function (Blueprint $table) {
+            $table->string('scanned_copy')->nullable()->after('serial_number');
+            $table->text('notes')->nullable()->after('scanned_copy');
         });
     }
 
@@ -21,8 +22,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('letterhead_templates', function (Blueprint $table) {
-            $table->dropColumn('print_margins');
+        Schema::table('serial_usages', function (Blueprint $table) {
+            $table->dropColumn(['scanned_copy', 'notes']);
         });
     }
 };

@@ -10,6 +10,7 @@
                     <div class="mt-2 text-sm text-success-700 dark:text-success-300">
                         <p>
                             The preview below shows exactly how your documents will appear when printed.
+                            Adjust margins and save them for future use.
                         </p>
                         @php
                         $serialInfo = $this->getSerialInfo();
@@ -20,16 +21,21 @@
                         </p>
                     </div>
                 </div>
-                <x-filament::button icon="heroicon-o-printer" onclick="prepareAndPrint()" class="print:hidden">
-                    Print All
-                </x-filament::button>
             </div>
+        </div>
+
+        <!-- Margin Controls Form -->
+        <div class="print:hidden">
+            {{ $this->form }}
         </div>
 
         <!-- Print Simulation Preview -->
         <div class="preview-container print:hidden">
             @foreach($templates as $index => $template)
             @if(isset($renderedContent[$template->id]) && !empty($renderedContent[$template->id]))
+            @php
+                $margins = $this->getTemplateMargins($template->id);
+            @endphp
             <div class="a4-page">
                 <!-- Page Header (only in preview) -->
                 <div class="page-header">
@@ -37,6 +43,10 @@
                         <div>
                             <h3 class="font-semibold text-gray-700">{{ $template->name }}</h3>
                             <p class="text-sm text-gray-500">Template {{ $index + 1 }} of {{ count($templates) }}</p>
+                            <p class="text-xs text-gray-400 mt-1">
+                                Margins: Top {{ $margins['top'] }}mm, Right {{ $margins['right'] }}mm, 
+                                Bottom {{ $margins['bottom'] }}mm, Left {{ $margins['left'] }}mm
+                            </p>
                         </div>
                         <div class="text-sm text-gray-500">
                             Serials: {{ $this->getTemplateSerialRange($template->id) }}
@@ -44,8 +54,8 @@
                     </div>
                 </div>
 
-                <!-- Actual Content Area (matches print exactly) -->
-                <div class="page-content">
+                <!-- Actual Content Area with dynamic margins -->
+                <div class="page-content" style="padding: {{ $margins['top'] }}mm {{ $margins['right'] }}mm {{ $margins['bottom'] }}mm {{ $margins['left'] }}mm;">
                     <div class="print-content">
                         {!! $renderedContent[$template->id] !!}
                     </div>
@@ -58,30 +68,29 @@
             </div>
 
             @if($index < count($templates) - 1)
-                <div class="page-gap">
+                <div class="page-gap"></div>
+            @endif
+            @endif
+            @endforeach
         </div>
-        @endif
-        @endif
-        @endforeach
-    </div>
 
-    <!-- Hidden Print Content - Only for printing -->
-    <div id="print-content" class="hidden">
-        @foreach($templates as $index => $template)
-        @if(isset($renderedContent[$template->id]) && !empty($renderedContent[$template->id]))
-        <div class="print-page">
-            <div class="print-document">
-                {!! $renderedContent[$template->id] !!}
+        <!-- Hidden Print Content - Only for printing -->
+        <div id="print-content" class="hidden">
+            @foreach($templates as $index => $template)
+            @if(isset($renderedContent[$template->id]) && !empty($renderedContent[$template->id]))
+            @php
+                $margins = $this->getTemplateMargins($template->id);
+            @endphp
+            <div class="print-page">
+                <div class="print-document" style="margin: {{ $margins['top'] }}mm {{ $margins['right'] }}mm {{ $margins['bottom'] }}mm {{ $margins['left'] }}mm;">
+                    {!! $renderedContent[$template->id] !!}
+                </div>
             </div>
-        </div>
 
-        @if($index < count($templates) - 1)
-            <!-- <div style="page-break-after: always;">
-    </div> -->
-    @endif
-    @endif
-    @endforeach
-    </div>
+            
+            @endif
+            @endforeach
+        </div>
     </div>
 
     @push('scripts')
@@ -97,17 +106,34 @@
             doc.write('<html><head>');
             doc.write('<meta charset="utf-8"><title>Print</title>');
             doc.write(`<style>
-        @page { size: A4; margin: 15mm; }
-        body { font-family: "Times New Roman"; font-size: 12pt; margin: 0; }
-        .print-page { page-break-after: always; }
-        .print-page:last-child { page-break-after: auto; }
+        @page { 
+            size: A4; 
+            margin: 0;
+        }
+        body { 
+            font-family: "Times New Roman"; 
+            font-size: 12pt; 
+            margin: 0; 
+            padding: 0;
+        }
+        .print-page { 
+            page-break-after: always; 
+            height: 297mm;
+            width: 210mm;
+        }
+        .print-page:last-child { 
+            page-break-after: auto; 
+        }
+        .print-document {
+            width: 100%;
+            height: 100%;
+        }
     </style>`);
-            doc.write('<\/head><\/body>');
+            doc.write('<\/head><body>');
             doc.write(rawContent);
             doc.write('<\/body><\/html>');
             doc.close();
 
-            // Use onload on the popup window object (no script tags)
             printWindow.onload = function() {
                 setTimeout(() => {
                     printWindow.print();
@@ -116,7 +142,6 @@
             };
         };
 
-        // Also wire Livewire event to the same global function (if you trigger via Livewire)
         document.addEventListener('livewire:load', function() {
             if (window.Livewire) {
                 Livewire.on('print-document', () => {
@@ -124,6 +149,18 @@
                         window.prepareAndPrint();
                     }
                 });
+            }
+        });
+
+        // Live margin updates
+        document.addEventListener('input', function(e) {
+            if (e.target.name && e.target.name.includes('marginData')) {
+                // Trigger Livewire update after a short delay
+                setTimeout(() => {
+                    if (window.Livewire) {
+                        window.Livewire.find('{{ $this->getId() }}').call('updateMargins');
+                    }
+                }, 300);
             }
         });
     </script>
@@ -147,7 +184,6 @@
         }
 
         .page-content {
-            padding: 15mm;
             min-height: calc(297mm - 30mm);
             background: white;
         }

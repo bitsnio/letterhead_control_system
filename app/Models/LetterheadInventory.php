@@ -107,7 +107,7 @@ class LetterheadInventory extends Model
 
         foreach ($serials as $serial) {
             SerialUsage::create([
-                'letterhead_id' => $this->id,
+                'letterhead_inventory_id' => $this->id,
                 'print_job_id' => $printJob->id,
                 'serial_number' => $serial,
                 'used_at' => now(),
