@@ -188,7 +188,7 @@ class BulkPrintPreview extends Page implements HasForms
     public function markPrintingComplete(): void
     {
         $data = $this->printData;
-        
+
         // Validate the data
         $validation = $this->validateAllTemplates($data);
 
@@ -222,11 +222,8 @@ class BulkPrintPreview extends Page implements HasForms
                 'status' => 'completed', // Mark as completed since we're printing
             ]);
 
-            // Allocate serials for the entire range
-            $totalStartSerial = collect($data['templates'])->min('start_serial');
-            $totalEndSerial = collect($data['templates'])->max('end_serial');
-
-            $allocated = $letterhead->allocateSerials($printJob, $totalStartSerial, $totalEndSerial);
+            // Allocate serials with template assignments
+            $allocated = $letterhead->allocateSerialsWithTemplates($printJob, $data['templates']);
 
             if (!$allocated) {
                 throw new \Exception("Failed to allocate serials for the print job.");
@@ -246,7 +243,6 @@ class BulkPrintPreview extends Page implements HasForms
 
             // Refresh the page to show the updated state
             $this->redirect(route('filament.admin.pages.bulk-print-preview'));
-
         } catch (\Throwable $e) {
             DB::rollBack();
             Notification::make()

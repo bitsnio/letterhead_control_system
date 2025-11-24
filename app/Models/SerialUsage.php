@@ -14,6 +14,7 @@ class SerialUsage extends Model
         'letterhead_inventory_id',
         'print_job_id',
         'serial_number',
+        'letterhead_template_id',
         'used_at',
         'scanned_copy', // Add this field
         'notes', // Add this field
@@ -33,6 +34,13 @@ class SerialUsage extends Model
     {
         return $this->belongsTo(PrintJob::class);
     }
+
+     public function template(): BelongsTo
+    {
+        return $this->belongsTo(LetterheadTemplate::class, 'letterhead_template_id');
+    }
+
+
     public function canEditSerial(): bool
     {
         return $this->printJob &&
