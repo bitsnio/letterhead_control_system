@@ -9,13 +9,8 @@ use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Grid;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
-use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
 
 class BulkPrintPreview extends Page implements HasForms
@@ -31,12 +26,12 @@ class BulkPrintPreview extends Page implements HasForms
     public $templates = [];
     public $renderedContent = [];
     public $margins = [];
+    public $orientations = [];
+    public $fontSizes = [];
     public $printJobId = null;
     public $quantities = [];
     public $startSerials = [];
     public $endSerials = [];
-
-    public ?array $marginData = [];
 
     public function mount()
     {
@@ -45,6 +40,8 @@ class BulkPrintPreview extends Page implements HasForms
         $this->printJobId = session('print_job_id');
         $this->renderedContent = session('bulk_print_rendered_content', []);
         $this->margins = session('bulk_print_margins', []);
+        $this->orientations = session('bulk_print_orientations', []);
+        $this->fontSizes = session('bulk_print_font_sizes', []);
 
         if (!$this->printData || !$templateIds) {
             Notification::make()
@@ -65,106 +62,85 @@ class BulkPrintPreview extends Page implements HasForms
             $this->endSerials[$templateId] = $templateData['end_serial'] ?? null;
         }
 
-        // Prepare margin form data
-        $this->prepareMarginFormData();
-    }
-
-    protected function prepareMarginFormData(): void
-    {
+        // Initialize margins, orientations, and font sizes from print_margins array
         foreach ($this->templates as $template) {
-            $templateMargins = $this->margins[$template->id] ?? [
-                'top' => '15',
-                'right' => '15',
-                'bottom' => '15',
-                'left' => '15'
-            ];
+            $printMargins = $template->print_margins ?? [];
 
-            $this->marginData["template_{$template->id}"] = $templateMargins;
-        }
-    }
+            // Initialize margins from print_margins array
+            if (!isset($this->margins[$template->id])) {
+                $this->margins[$template->id] = [
+                    'top' => $printMargins['top'] ?? '15',
+                    'right' => $printMargins['right'] ?? '15',
+                    'bottom' => $printMargins['bottom'] ?? '15',
+                    'left' => $printMargins['left'] ?? '15'
+                ];
+            }
 
-    public function form(Schema $form): Schema
-    {
-        $schema = [];
+            // Initialize orientation from print_margins array
+            if (!isset($this->orientations[$template->id])) {
+                $this->orientations[$template->id] = $printMargins['orientation'] ?? 'portrait';
+            }
 
-        foreach ($this->templates as $template) {
-            $schema[] = Section::make("Margins for: {$template->name}")
-                ->schema([
-                    Grid::make(4)->schema([
-                        TextInput::make("template_{$template->id}.top")
-                            ->label('Top Margin (mm)')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(50)
-                            ->live()
-                            ->afterStateUpdated(function ($state) {
-                                $this->updateMargins();
-                            }),
-
-                        TextInput::make("template_{$template->id}.right")
-                            ->label('Right Margin (mm)')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(50)
-                            ->live()
-                            ->afterStateUpdated(function ($state) {
-                                $this->updateMargins();
-                            }),
-
-                        TextInput::make("template_{$template->id}.bottom")
-                            ->label('Bottom Margin (mm)')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(50)
-                            ->live()
-                            ->afterStateUpdated(function ($state) {
-                                $this->updateMargins();
-                            }),
-
-                        TextInput::make("template_{$template->id}.left")
-                            ->label('Left Margin (mm)')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(50)
-                            ->live()
-                            ->afterStateUpdated(function ($state) {
-                                $this->updateMargins();
-                            }),
-                    ]),
-                ])
-                ->collapsible()
-                ->collapsed(true);
-        }
-
-        return $form
-            ->schema($schema)
-            ->statePath('marginData');
-    }
-
-    public function updateMargins(): void
-    {
-        foreach ($this->templates as $template) {
-            $marginKey = "template_{$template->id}";
-            if (isset($this->marginData[$marginKey])) {
-                $this->margins[$template->id] = $this->marginData[$marginKey];
+            // Initialize font size from print_margins array
+            if (!isset($this->fontSizes[$template->id])) {
+                $this->fontSizes[$template->id] = $printMargins['font_size'] ?? 100;
             }
         }
+    }
 
-        // Update session with new margins
+    public function updateMargin($templateId, $side, $value): void
+    {
+        $this->margins[$templateId][$side] = $value;
         session(['bulk_print_margins' => $this->margins]);
+    }
+
+    public function updateOrientation($templateId, $value): void
+    {
+        $this->orientations[$templateId] = $value;
+        session(['bulk_print_orientations' => $this->orientations]);
+    }
+
+    public function updateFontSize($templateId, $value): void
+    {
+        $this->fontSizes[$templateId] = $value;
+        session(['bulk_print_font_sizes' => $this->fontSizes]);
     }
 
     public function saveMargins(): void
     {
         try {
+            // Update session with current settings before saving
+            session([
+                'bulk_print_margins' => $this->margins,
+                'bulk_print_orientations' => $this->orientations,
+                'bulk_print_font_sizes' => $this->fontSizes,
+            ]);
+
             DB::beginTransaction();
 
+            $savedCount = 0;
             foreach ($this->templates as $template) {
-                $marginKey = "template_{$template->id}";
-                if (isset($this->marginData[$marginKey])) {
-                    $template->update([
-                        'print_margins' => $this->marginData[$marginKey]
-                    ]);
+                $updateData = [];
+
+                // Get existing print_margins or initialize empty array
+                $existingMargins = $template->print_margins ?? [];
+
+                // Build updated print_margins array
+                $updatedMargins = array_merge($existingMargins, [
+                    'top' => $this->margins[$template->id]['top'] ?? ($existingMargins['top'] ?? '15'),
+                    'right' => $this->margins[$template->id]['right'] ?? ($existingMargins['right'] ?? '15'),
+                    'bottom' => $this->margins[$template->id]['bottom'] ?? ($existingMargins['bottom'] ?? '15'),
+                    'left' => $this->margins[$template->id]['left'] ?? ($existingMargins['left'] ?? '15'),
+                    'orientation' => $this->orientations[$template->id] ?? ($existingMargins['orientation'] ?? 'portrait'),
+                    'font_size' => $this->fontSizes[$template->id] ?? ($existingMargins['font_size'] ?? 100),
+                ]);
+
+                // Save the combined print_margins array
+                $updateData['print_margins'] = $updatedMargins;
+
+                if (!empty($updateData)) {
+                    $template->update($updateData);
+                    $savedCount++;
                 }
             }
 
@@ -172,8 +148,8 @@ class BulkPrintPreview extends Page implements HasForms
 
             Notification::make()
                 ->success()
-                ->title('Margins Saved')
-                ->body('Print margins have been saved to templates for future use.')
+                ->title('Settings Saved')
+                ->body("Print settings (margins, orientation, font size) have been saved to {$savedCount} template(s) for future use.")
                 ->send();
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -184,7 +160,6 @@ class BulkPrintPreview extends Page implements HasForms
                 ->send();
         }
     }
-
     public function markPrintingComplete(): void
     {
         $data = $this->printData;
@@ -207,6 +182,19 @@ class BulkPrintPreview extends Page implements HasForms
             $globalLetterheadId = $data['global_letterhead_id'];
             $letterhead = Letterhead::findOrFail($globalLetterheadId);
 
+            // Prepare margins array with all settings for each template
+            $marginsWithSettings = [];
+            foreach ($this->templates as $template) {
+                $marginsWithSettings[$template->id] = [
+                    'top' => $this->margins[$template->id]['top'] ?? '15',
+                    'right' => $this->margins[$template->id]['right'] ?? '15',
+                    'bottom' => $this->margins[$template->id]['bottom'] ?? '15',
+                    'left' => $this->margins[$template->id]['left'] ?? '15',
+                    'orientation' => $this->orientations[$template->id] ?? 'portrait',
+                    'font_size' => $this->fontSizes[$template->id] ?? 100,
+                ];
+            }
+
             // Create a single print job for all templates
             $printJob = PrintJob::create([
                 'user_id' => auth()->id(),
@@ -214,12 +202,12 @@ class BulkPrintPreview extends Page implements HasForms
                 'variable_data' => collect($data['templates'])->mapWithKeys(function ($templateData, $templateId) {
                     return [$templateId => $templateData['variable_data']];
                 })->toArray(),
-                'margins' => $this->margins,
+                'margins' => $marginsWithSettings, // Use the combined array
                 'quantity' => collect($data['templates'])->sum('quantity'),
                 'start_serial' => collect($data['templates'])->min('start_serial'),
                 'end_serial' => collect($data['templates'])->max('end_serial'),
                 'letterhead_id' => $globalLetterheadId,
-                'status' => 'completed', // Mark as completed since we're printing
+                'status' => 'completed',
             ]);
 
             // Allocate serials with template assignments
@@ -231,7 +219,6 @@ class BulkPrintPreview extends Page implements HasForms
 
             DB::commit();
 
-            // Update session with print job ID
             session(['print_job_id' => $printJob->id]);
             $this->printJobId = $printJob->id;
 
@@ -241,7 +228,6 @@ class BulkPrintPreview extends Page implements HasForms
                 ->body('Print job has been marked as completed. You can now upload scanned copies against this job.')
                 ->send();
 
-            // Refresh the page to show the updated state
             $this->redirect(route('filament.admin.pages.bulk-print-preview'));
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -272,7 +258,6 @@ class BulkPrintPreview extends Page implements HasForms
         foreach ($data['templates'] as $templateId => $templateData) {
             $templateName = $this->templates->firstWhere('id', $templateId)->name ?? 'Unknown Template';
 
-            // Validate quantity
             $quantity = (int) $templateData['quantity'];
             if ($quantity < 1) {
                 return [
@@ -282,73 +267,45 @@ class BulkPrintPreview extends Page implements HasForms
             }
 
             $totalQuantity += $quantity;
-
-            // Validate serial continuity
             $startSerial = (int) $templateData['start_serial'];
             $endSerial = (int) $templateData['end_serial'];
 
             if ($previousEndSerial !== null && $startSerial !== $previousEndSerial + 1) {
                 return [
                     'success' => false,
-                    'message' => "Template '{$templateName}' should start from serial " . ($previousEndSerial + 1) . " (continuing from previous template)"
+                    'message' => "Template '{$templateName}' should start from serial " . ($previousEndSerial + 1)
                 ];
             }
 
-            // Validate serial range matches quantity
             $expectedEndSerial = $startSerial + $quantity - 1;
             if ($endSerial !== $expectedEndSerial) {
                 return [
                     'success' => false,
-                    'message' => "Template '{$templateName}' serial range should be {$startSerial}-{$expectedEndSerial} for quantity {$quantity}"
+                    'message' => "Template '{$templateName}' serial range should be {$startSerial}-{$expectedEndSerial}"
                 ];
             }
 
             $previousEndSerial = $endSerial;
         }
 
-        // Validate total range fits in batch
         $firstTemplate = reset($data['templates']);
         $lastTemplate = end($data['templates']);
-
         $totalStartSerial = $firstTemplate['start_serial'];
         $totalEndSerial = $lastTemplate['end_serial'];
 
         if ($totalStartSerial < $letterhead->start_serial || $totalEndSerial > $letterhead->end_serial) {
             return [
                 'success' => false,
-                'message' => "Total serial range {$totalStartSerial}-{$totalEndSerial} exceeds batch range {$letterhead->start_serial}-{$letterhead->end_serial}"
+                'message' => "Total serial range {$totalStartSerial}-{$totalEndSerial} exceeds batch range"
             ];
         }
 
-        // Use the model's validateSerialRange method
         $errors = $letterhead->validateSerialRange($totalStartSerial, $totalEndSerial);
         if (!empty($errors)) {
-            return [
-                'success' => false,
-                'message' => implode('. ', $errors)
-            ];
+            return ['success' => false, 'message' => implode('. ', $errors)];
         }
 
         return ['success' => true];
-    }
-
-    protected function replaceVariables(string $content, array $variableData): string
-    {
-        foreach ($variableData as $variable => $value) {
-            // Replace multiple variable formats
-            $content = str_replace(
-                [
-                    '$' . $variable . '$',
-                    '{' . $variable . '}',
-                    '{{' . $variable . '}}',
-                    '{$' . $variable . '$}'
-                ],
-                $value,
-                $content
-            );
-        }
-
-        return $content;
     }
 
     public function getTemplateMargins($templateId): array
@@ -359,6 +316,16 @@ class BulkPrintPreview extends Page implements HasForms
             'bottom' => '15',
             'left' => '15'
         ];
+    }
+
+    public function getTemplateOrientation($templateId): string
+    {
+        return $this->orientations[$templateId] ?? 'portrait';
+    }
+
+    public function getTemplateFontSize($templateId): int
+    {
+        return $this->fontSizes[$templateId] ?? 100;
     }
 
     protected function getHeaderActions(): array
@@ -372,7 +339,7 @@ class BulkPrintPreview extends Page implements HasForms
                 ->visible(fn() => !$this->printJobId),
 
             Action::make('save_margins')
-                ->label('Save Margins')
+                ->label('Save Settings')
                 ->icon('heroicon-o-bookmark')
                 ->color('primary')
                 ->action('saveMargins')

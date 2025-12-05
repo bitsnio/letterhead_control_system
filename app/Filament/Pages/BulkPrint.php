@@ -11,13 +11,13 @@ use Filament\Forms\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\RichEditor; // <-- Import RichEditor
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
 use Illuminate\Support\Facades\DB;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Grid;
-
 use Illuminate\Contracts\View\View;
 use Filament\Infolists\Components\RepeatableEntry;
 
@@ -61,7 +61,7 @@ class BulkPrint extends Page
                 ->body('Selected templates are not available for printing.')
                 ->send();
 
-            $this->redirect(route('filament.admin.resources.letterheads-templates.index'));
+            $this->redirect(route('filament.admin.resources.letterhead-templates.index'));
             return;
         }
 
@@ -202,21 +202,49 @@ class BulkPrint extends Page
         }
     }
 
+    /**
+     * Dynamically creates form fields (TextInput or RichEditor) for template variables.
+     * * @param mixed $template
+     * @return array
+     */
     protected function getVariableFieldsForTemplate($template): array
     {
         $fields = [];
 
         if (!empty($template->variables)) {
-            $variableFields = collect($template->variables)->map(
-                fn($var) => TextInput::make("templates.{$template->id}.variable_data.{$var}")
-                    ->label("{$var}")
-                    ->required()
-                    ->placeholder("Enter value for {$var}")
-            )->toArray();
+            $variableFields = collect($template->variables)->map(function ($var) use ($template) {
+
+                // Check if the variable is designated for rich content (case-insensitive)
+                if (strtoupper($var) === '$TABLE$' || strtoupper($var) === 'TABLE') {
+                    // Use RichEditor for table variables
+                    return RichEditor::make("templates.{$template->id}.variable_data.{$var}")
+                        ->label("Table/Rich Content for {$var}")
+                        ->required()
+                        ->placeholder("Enter styled content or table for {$var}")
+                        ->columnSpanFull() // Make rich editor span full width
+                        ->toolbarButtons([ // Optional: Customize toolbar if needed
+                            'bold',
+                            'italic',
+                            'strike',
+                            'bulletList',
+                            'orderedList',
+                            'link',
+                            'undo',
+                            'redo',
+                            'table', // Keep table button
+                        ]);
+                } else {
+                    // Use standard TextInput for all other variables
+                    return TextInput::make("templates.{$template->id}.variable_data.{$var}")
+                        ->label("{$var}")
+                        ->required()
+                        ->placeholder("Enter value for {$var}");
+                }
+            })->toArray();
 
             $fields[] = Section::make('Template Variables')
                 ->schema($variableFields)
-                ->columns(2)
+                ->columns(2) // Columns(2) for text inputs, but RichEditor will use columnSpanFull
                 ->collapsed(false);
         }
 
@@ -261,9 +289,20 @@ class BulkPrint extends Page
     /**
      * Replace variables in template content
      */
+    // In App\Filament\Pages\BulkPrint
     protected function replaceVariables(string $content, array $variableData): string
     {
         foreach ($variableData as $variable => $value) {
+
+            // Check if this is the TABLE variable (case-insensitive)
+            $isTableVariable = strtoupper($variable) === 'TABLE';
+
+            // If it is the table variable, wrap the value in a unique class
+            if ($isTableVariable) {
+                // Apply the unique class wrapper
+                $value = '<div class="table-variable-content">' . $value . '</div>';
+            }
+
             // Replace multiple variable formats
             $content = str_replace(
                 [

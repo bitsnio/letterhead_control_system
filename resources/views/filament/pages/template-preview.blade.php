@@ -12,7 +12,6 @@ $templateVariables = $variableData[$template->id] ?? [];
         <p class="text-sm text-gray-600">
             Serial: <strong>{{ number_format($serialUsage->serial_number) }}</strong> |
             Job: <strong>#{{ $printJob->id }}</strong> |
-            Batch: <strong>{{ $serialUsage->letterhead->batch_name }}</strong> |
             Template: <strong>{{ $template->name }}</strong>
         </p>
     </div>
@@ -53,7 +52,7 @@ $templateVariables = $variableData[$template->id] ?? [];
     <div class="mt-6 flex justify-end space-x-3">
         <x-filament::button
             tag="a"
-            href="{{ route('filament.admin.resources.serial-usages.edit', $serialUsage->id) }}"
+            href="{{ route('filament.admin.resources.printed-letterheads.edit', $serialUsage->id) }}"
             color="primary"
             icon="heroicon-o-pencil">
             Edit Serial

@@ -125,10 +125,10 @@ class PrintedLetterheadsResource extends Resource
                     ->sortable()
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('letterhead.batch_name')
-                    ->label('Batch Name')
-                    ->sortable()
-                    ->searchable(),
+                // Tables\Columns\TextColumn::make('letterhead.batch_name')
+                //     ->label('Batch Name')
+                //     ->sortable()
+                //     ->searchable(),
 
                 Tables\Columns\TextColumn::make('printJob.templates_count')
                     ->label('Templates')
@@ -214,32 +214,75 @@ class PrintedLetterheadsResource extends Resource
                                 'serialUsage' => fn($record) => $record,
                             ]),
                     ]),
+                Action::make('uploadScan')
+                    ->label('Upload Scan')
+                    ->icon('heroicon-o-cloud-arrow-up')
+                    ->color('success')
+                    ->schema([
+                        Forms\Components\FileUpload::make('scanned_copy')
+                            ->label('Upload Scan')
+                            ->directory('serial-scans')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
+                            ->maxSize(5120)
+                            ->required(),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'scanned_copy' => $data['scanned_copy']
+                        ]);
+                    }),
 
-                Actions\EditAction::make()->visible(fn ($record) => $record->canEditSerial()),
-                Actions\DeleteAction::make()->visible(fn ($record) => $record->canEditSerial()),
-            ])
-            ->toolbarActions([
-                Actions\BulkActionGroup::make([
-                    Actions\DeleteBulkAction::make(),
+                Actions\EditAction::make()
+                    ->label('Update Record')
+                    ->icon('heroicon-o-pencil-square')
+                    ->schema(fn($record) => [
+                        Forms\Components\Select::make('status')
+                            ->label('Print Status')
+                            ->options([
+                                'successful' => 'Print Successful',
+                                'wasted' => 'Wasted',
+                            ])
+                            ->required(),
 
-                    Actions\BulkAction::make('upload_scans')
-                        ->label('Upload Scans')
-                        ->icon('heroicon-o-cloud-arrow-up')
-                        ->color('primary')
-                        ->schema([
-                            Forms\Components\FileUpload::make('scanned_copies')
-                                ->label('Scanned Copies')
-                                ->multiple()
-                                ->directory('serial-scans')
-                                ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
-                                ->maxSize(5120)
-                                ->required(),
-                        ])
-                        ->action(function ($records, array $data) {
-                            // This would need custom implementation for bulk upload
-                        }),
-                ]),
+                        Forms\Components\TextInput::make('serial_number')
+                            ->label('Serial Number')
+                            ->numeric()
+                            ->visible(fn() => $record->canEditSerial())
+                            ->rules(['integer'])
+                            ->helperText("If you need to adjust the serial, update it here."),
+
+                        Forms\Components\FileUpload::make('scanned_copy')
+                            ->label('Replace Scan (Optional)')
+                            ->directory('serial-scans'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update($data);
+                    }),
+
+                Actions\DeleteAction::make()->visible(fn($record) => $record->canEditSerial()),
             ])
+            // ->toolbarActions([
+            //     Actions\BulkActionGroup::make([
+            //         Actions\DeleteBulkAction::make(),
+
+            //         Actions\BulkAction::make('upload_scans')
+            //             ->label('Upload Scans')
+            //             ->icon('heroicon-o-cloud-arrow-up')
+            //             ->color('primary')
+            //             ->schema([
+            //                 Forms\Components\FileUpload::make('scanned_copies')
+            //                     ->label('Scanned Copies')
+            //                     ->multiple()
+            //                     ->directory('serial-scans')
+            //                     ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
+            //                     ->maxSize(5120)
+            //                     ->required(),
+            //             ])
+            //             ->action(function ($records, array $data) {
+            //                 // This would need custom implementation for bulk upload
+            //             }),
+            //     ]),
+            // ])
             ->defaultSort('used_at', 'desc')
             ->emptyStateHeading('No serial usage records found')
             ->emptyStateDescription('Serial usage records will appear here after print jobs are completed.')
@@ -269,5 +312,16 @@ class PrintedLetterheadsResource extends Resource
             ->with(['printJob', 'letterhead'])
             ->orderBy('print_job_id', 'desc')
             ->orderBy('serial_number', 'asc');
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = SerialUsage::whereNull('scanned_copy')->count();
+        return $count > 0 ? (string)$count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
     }
 }

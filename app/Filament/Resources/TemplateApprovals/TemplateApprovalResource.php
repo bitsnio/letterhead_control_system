@@ -41,7 +41,7 @@ class TemplateApprovalResource extends Resource
     {
         return [
             'index' => ListTemplateApprovals::route('/'),
-            'create' => CreateTemplateApproval::route('/create'),
+            // 'create' => CreateTemplateApproval::route('/create'),
             'edit' => EditTemplateApproval::route('/{record}/edit'),
         ];
     }
