@@ -32,6 +32,8 @@ class BulkPrintPreview extends Page implements HasForms
     public $quantities = [];
     public $startSerials = [];
     public $endSerials = [];
+    public $segmentData = [];
+    public $pageCounts = [];
 
     public function mount()
     {
@@ -42,6 +44,8 @@ class BulkPrintPreview extends Page implements HasForms
         $this->margins = session('bulk_print_margins', []);
         $this->orientations = session('bulk_print_orientations', []);
         $this->fontSizes = session('bulk_print_font_sizes', []);
+        $this->segmentData = session('bulk_print_segment_data', []);
+        $this->pageCounts = session('bulk_print_page_counts', []);
 
         if (!$this->printData || !$templateIds) {
             Notification::make()
@@ -88,22 +92,162 @@ class BulkPrintPreview extends Page implements HasForms
         }
     }
 
+    // ADD THIS METHOD TO HANDLE PAGE SEGMENTATION
+    public function finalizeSegmentsAndSerials(array $segmentData): void
+    {
+        // Store page counts in session
+        session(['bulk_print_page_counts' => $segmentData]);
+        $this->pageCounts = $segmentData;
+        
+        // Now calculate and assign serials based on page counts
+        $data = $this->printData;
+        $globalLetterheadId = $data['global_letterhead_id'] ?? null;
+        
+        if (!$globalLetterheadId) {
+            Notification::make()
+                ->warning()
+                ->title('No Batch Selected')
+                ->body('Please select a letterhead batch.')
+                ->send();
+            return;
+        }
+        
+        $letterhead = Letterhead::find($globalLetterheadId);
+        if (!$letterhead) {
+            Notification::make()
+                ->warning()
+                ->title('Invalid Batch')
+                ->body('Selected letterhead batch not found.')
+                ->send();
+            return;
+        }
+        
+        $currentSerial = $letterhead->getNextAvailableSerial() ?? $letterhead->start_serial;
+        $totalPages = 0;
+        
+        // Group segments by template
+        $templateSegments = [];
+        foreach ($segmentData as $segment) {
+            $templateId = $segment['templateId'];
+            if (!isset($templateSegments[$templateId])) {
+                $templateSegments[$templateId] = 0;
+            }
+            $templateSegments[$templateId] += $segment['pageCount'];
+        }
+        
+        // Update print data with calculated serials
+        foreach ($templateSegments as $templateId => $pageCount) {
+            if (isset($data['templates'][$templateId])) {
+                $data['templates'][$templateId]['start_serial'] = $currentSerial;
+                $data['templates'][$templateId]['end_serial'] = $currentSerial + $pageCount - 1;
+                $data['templates'][$templateId]['quantity'] = $pageCount; // Set quantity = page count
+                
+                // Update component properties
+                $this->startSerials[$templateId] = $currentSerial;
+                $this->endSerials[$templateId] = $currentSerial + $pageCount - 1;
+                $this->quantities[$templateId] = $pageCount;
+                
+                $currentSerial += $pageCount;
+                $totalPages += $pageCount;
+            }
+        }
+        
+        // Update session with calculated serials
+        session(['bulk_print_data' => $data]);
+        $this->printData = $data;
+        
+        Notification::make()
+            ->success()
+            ->title('Pages Calculated')
+            ->body("Total pages needed: {$totalPages}. Serials have been assigned.")
+            ->send();
+    }
+
+    public function getPrintPagesData(): array
+    {
+        $pagesData = [];
+        
+        foreach ($this->templates as $template) {
+            if (!isset($this->renderedContent[$template->id])) {
+                continue;
+            }
+            
+            // Get page count from calculated data
+            $pageCount = 1;
+            foreach ($this->pageCounts as $segment) {
+                if (isset($segment['templateId']) && $segment['templateId'] == $template->id) {
+                    $pageCount = $segment['pageCount'] ?? 1;
+                    break;
+                }
+            }
+            
+            $margins = $this->getTemplateMargins($template->id);
+            $orientation = $this->getTemplateOrientation($template->id);
+            $fontSize = $this->getTemplateFontSize($template->id);
+            
+            $pageWidth = $orientation === 'landscape' ? 297 : 210;
+            $pageHeight = $orientation === 'landscape' ? 210 : 297;
+            $contentWidth = $pageWidth - $margins['left'] - $margins['right'];
+            $contentHeight = $pageHeight - $margins['top'] - $margins['bottom'];
+            
+            $pagesData[] = [
+                'templateId' => $template->id,
+                'templateName' => $template->name,
+                'content' => $this->renderedContent[$template->id],
+                'pageCount' => $pageCount,
+                'margins' => $margins,
+                'orientation' => $orientation,
+                'fontSize' => $fontSize,
+                'pageWidth' => $pageWidth,
+                'pageHeight' => $pageHeight,
+                'contentWidth' => $contentWidth,
+                'contentHeight' => $contentHeight,
+            ];
+        }
+        
+        return $pagesData;
+    }
+
+    public function updatedMargins($value, $key): void
+    {
+        // When margins change, update session
+        session(['bulk_print_margins' => $this->margins]);
+        $this->dispatch('content-updated');
+    }
+
+    public function updatedOrientations($value, $key): void
+    {
+        // When orientation changes, update session
+        session(['bulk_print_orientations' => $this->orientations]);
+        $this->dispatch('content-updated');
+    }
+
+    public function updatedFontSizes($value, $key): void
+    {
+        // When font size changes, update session
+        session(['bulk_print_font_sizes' => $this->fontSizes]);
+        $this->dispatch('content-updated');
+    }
+
     public function updateMargin($templateId, $side, $value): void
     {
         $this->margins[$templateId][$side] = $value;
         session(['bulk_print_margins' => $this->margins]);
+        $this->dispatch('content-updated');
     }
 
     public function updateOrientation($templateId, $value): void
     {
         $this->orientations[$templateId] = $value;
         session(['bulk_print_orientations' => $this->orientations]);
+        $this->dispatch('content-updated');
     }
 
     public function updateFontSize($templateId, $value): void
     {
         $this->fontSizes[$templateId] = $value;
         session(['bulk_print_font_sizes' => $this->fontSizes]);
+        $this->dispatch('content-updated');
     }
 
     public function saveMargins(): void
@@ -160,6 +304,7 @@ class BulkPrintPreview extends Page implements HasForms
                 ->send();
         }
     }
+
     public function markPrintingComplete(): void
     {
         $data = $this->printData;
@@ -195,6 +340,12 @@ class BulkPrintPreview extends Page implements HasForms
                 ];
             }
 
+            // Calculate total pages from page counts
+            $totalPages = 0;
+            foreach ($this->pageCounts as $segment) {
+                $totalPages += $segment['pageCount'] ?? 1;
+            }
+
             // Create a single print job for all templates
             $printJob = PrintJob::create([
                 'user_id' => auth()->id(),
@@ -202,8 +353,8 @@ class BulkPrintPreview extends Page implements HasForms
                 'variable_data' => collect($data['templates'])->mapWithKeys(function ($templateData, $templateId) {
                     return [$templateId => $templateData['variable_data']];
                 })->toArray(),
-                'margins' => $marginsWithSettings, // Use the combined array
-                'quantity' => collect($data['templates'])->sum('quantity'),
+                'margins' => $marginsWithSettings,
+                'quantity' => $totalPages,
                 'start_serial' => collect($data['templates'])->min('start_serial'),
                 'end_serial' => collect($data['templates'])->max('end_serial'),
                 'letterhead_id' => $globalLetterheadId,
@@ -258,17 +409,24 @@ class BulkPrintPreview extends Page implements HasForms
         foreach ($data['templates'] as $templateId => $templateData) {
             $templateName = $this->templates->firstWhere('id', $templateId)->name ?? 'Unknown Template';
 
-            $quantity = (int) $templateData['quantity'];
+            $quantity = (int) ($templateData['quantity'] ?? 0);
             if ($quantity < 1) {
                 return [
                     'success' => false,
-                    'message' => "Template '{$templateName}' must have a quantity of at least 1."
+                    'message' => "Template '{$templateName}' requires at least 1 page."
                 ];
             }
 
             $totalQuantity += $quantity;
-            $startSerial = (int) $templateData['start_serial'];
-            $endSerial = (int) $templateData['end_serial'];
+            $startSerial = (int) ($templateData['start_serial'] ?? 0);
+            $endSerial = (int) ($templateData['end_serial'] ?? 0);
+
+            if ($startSerial === 0 || $endSerial === 0) {
+                return [
+                    'success' => false,
+                    'message' => "Template '{$templateName}' serials not calculated. Please preview first."
+                ];
+            }
 
             if ($previousEndSerial !== null && $startSerial !== $previousEndSerial + 1) {
                 return [
@@ -290,8 +448,8 @@ class BulkPrintPreview extends Page implements HasForms
 
         $firstTemplate = reset($data['templates']);
         $lastTemplate = end($data['templates']);
-        $totalStartSerial = $firstTemplate['start_serial'];
-        $totalEndSerial = $lastTemplate['end_serial'];
+        $totalStartSerial = $firstTemplate['start_serial'] ?? 0;
+        $totalEndSerial = $lastTemplate['end_serial'] ?? 0;
 
         if ($totalStartSerial < $letterhead->start_serial || $totalEndSerial > $letterhead->end_serial) {
             return [
@@ -326,6 +484,45 @@ class BulkPrintPreview extends Page implements HasForms
     public function getTemplateFontSize($templateId): int
     {
         return $this->fontSizes[$templateId] ?? 100;
+    }
+
+    public function getTemplateSerialRange($templateId): string
+    {
+        $start = $this->startSerials[$templateId] ?? null;
+        $end = $this->endSerials[$templateId] ?? null;
+
+        if ($start && $end) {
+            return $start === $end ? (string) $start : $start . ' - ' . $end;
+        }
+
+        return 'Not set';
+    }
+
+    public function getTemplateQuantity($templateId): int
+    {
+        return $this->quantities[$templateId] ?? 1;
+    }
+
+    public function getSerialInfo(): array
+    {
+        $totalQuantity = array_sum($this->quantities);
+        $allStartSerials = array_filter($this->startSerials);
+        $allEndSerials = array_filter($this->endSerials);
+
+        if (empty($allStartSerials) || empty($allEndSerials)) {
+            return [
+                'quantity' => $totalQuantity,
+                'serial_display' => 'Not calculated yet'
+            ];
+        }
+
+        $startSerial = min($allStartSerials);
+        $endSerial = max($allEndSerials);
+
+        return [
+            'quantity' => $totalQuantity,
+            'serial_display' => $startSerial . ' - ' . $endSerial
+        ];
     }
 
     protected function getHeaderActions(): array
@@ -371,44 +568,5 @@ class BulkPrintPreview extends Page implements HasForms
     public function printDocument()
     {
         $this->dispatch('print-document');
-    }
-
-    public function getSerialInfo(): array
-    {
-        $totalQuantity = array_sum($this->quantities);
-        $allStartSerials = array_filter($this->startSerials);
-        $allEndSerials = array_filter($this->endSerials);
-
-        if (empty($allStartSerials) || empty($allEndSerials)) {
-            return [
-                'quantity' => $totalQuantity,
-                'serial_display' => 'Not set'
-            ];
-        }
-
-        $startSerial = min($allStartSerials);
-        $endSerial = max($allEndSerials);
-
-        return [
-            'quantity' => $totalQuantity,
-            'serial_display' => $startSerial . ' - ' . $endSerial
-        ];
-    }
-
-    public function getTemplateQuantity($templateId): int
-    {
-        return $this->quantities[$templateId] ?? 1;
-    }
-
-    public function getTemplateSerialRange($templateId): string
-    {
-        $start = $this->startSerials[$templateId] ?? null;
-        $end = $this->endSerials[$templateId] ?? null;
-
-        if ($start && $end) {
-            return $start === $end ? $start : $start . ' - ' . $end;
-        }
-
-        return 'Not set';
     }
 }
