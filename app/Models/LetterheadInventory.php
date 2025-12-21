@@ -120,44 +120,7 @@ class LetterheadInventory extends Model
         return true;
     }
 
-    // public function allocateSerialsWithTemplates(PrintJob $printJob, array $templatesData): bool
-    // {
-    //     $startSerial = $printJob->start_serial;
-    //     $currentSerial = $startSerial;
-
-    //     foreach ($templatesData as $templateId => $templateData) {
-    //         $quantity = $templateData['quantity'] ?? 0;
-
-    //         if ($quantity > 0) {
-    //             // Validate this template's serial range
-    //             $templateStartSerial = $currentSerial;
-    //             $templateEndSerial = $currentSerial + $quantity - 1;
-
-    //             $errors = $this->validateSerialRange($templateStartSerial, $templateEndSerial);
-    //             if (!empty($errors)) {
-    //                 return false;
-    //             }
-
-    //             // Create serial usages for this template
-    //             for ($i = 0; $i < $quantity; $i++) {
-    //                 SerialUsage::create([
-    //                     'letterhead_inventory_id' => $this->id,
-    //                     'print_job_id' => $printJob->id,
-    //                     'letterhead_template_id' => $templateId, // Store template ID
-    //                     'serial_number' => $currentSerial,
-    //                     'used_at' => now(),
-    //                 ]);
-    //                 $currentSerial++;
-    //             }
-    //         }
-    //     }
-
-    //     // Update used quantity
-    //     $totalQuantity = $printJob->quantity;
-    //     $this->increment('used_quantity', $totalQuantity);
-
-    //     return true;
-    // }
+   
 
     // In LetterheadInventory.php model
     public function allocateSerialsWithTemplates(PrintJob $printJob, array $templatesData): bool

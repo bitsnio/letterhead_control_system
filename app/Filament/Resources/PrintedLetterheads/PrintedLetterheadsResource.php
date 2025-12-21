@@ -17,6 +17,7 @@ use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
 use Filament\Actions\Action;
 use Filament\Actions;
+use Illuminate\Support\Facades\Storage;
 
 class PrintedLetterheadsResource extends Resource
 {
@@ -92,12 +93,19 @@ class PrintedLetterheadsResource extends Resource
                             ->maxSize(5120) // 5MB
                             ->downloadable()
                             ->previewable(true)
-                            ->helperText('Upload scanned copy (PDF, JPG, PNG, max 5MB)'),
+                            ->helperText('Upload scanned copy (PDF, JPG, PNG, max 5MB)')
+                            ->disabled(fn($record): bool => !empty($record->notes)),
 
-                        Forms\Components\Textarea::make('notes')
-                            ->label('Notes')
-                            ->rows(3)
-                            ->placeholder('Add any notes about this serial...'),
+                        Forms\Components\Select::make('notes') // ← CHANGE THIS from Textarea to Select
+                            ->label('Print Status')
+                            ->options([
+                                'successful' => 'Print Successful',
+                                'wasted' => 'Wasted',
+                            ])
+                            ->nullable()
+                            ->placeholder('Select print status...')
+                            ->helperText('Once status is set, this record cannot be edited further.')
+                            ->disabled(fn($record): bool => !empty($record->notes)),
 
                         Forms\Components\DateTimePicker::make('used_at')
                             ->label('Used Date')
@@ -117,7 +125,7 @@ class PrintedLetterheadsResource extends Resource
                     ->label('Serial No.')
                     ->sortable()
                     ->searchable()
-                    ->formatStateUsing(fn($state) => number_format($state)),
+                    ->formatStateUsing(fn($state) => $state),
 
                 Tables\Columns\TextColumn::make('printJob.id')
                     ->label('Print Job')
@@ -201,8 +209,30 @@ class PrintedLetterheadsResource extends Resource
                     }),
             ])
             ->recordActions([
+                Action::make('viewDocument')
+                    ->label('View Scan')
+                    ->color('success')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->visible(fn($record): bool => !empty($record->scanned_copy))
+                    ->modalHeading('View Uploaded Document')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalContent(function ($record) {
+                        $fileExtension = pathinfo($record->scanned_copy, PATHINFO_EXTENSION);
+                        $isImage = in_array(strtolower($fileExtension), ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+                        $isPDF = strtolower($fileExtension) === 'pdf';
+                        $fileUrl = Storage::url($record->scanned_copy);
+
+                        return view('filament.components.document-preview-modal', [
+                            'fileUrl' => $fileUrl,
+                            'isImage' => $isImage,
+                            'isPDF' => $isPDF,
+                            'fileName' => basename($record->scanned_copy),
+                        ]);
+                    }),
                 Action::make('preview_template')
-                    ->label('Preview')
+                    ->label('Preview Template')
                     ->icon('heroicon-o-eye')
                     ->color('primary')
                     ->modalHeading('Template Preview')
@@ -218,6 +248,7 @@ class PrintedLetterheadsResource extends Resource
                     ->label('Upload Scan')
                     ->icon('heroicon-o-cloud-arrow-up')
                     ->color('success')
+                    ->visible(fn($record): bool => is_null($record->scanned_copy))
                     ->schema([
                         Forms\Components\FileUpload::make('scanned_copy')
                             ->label('Upload Scan')
@@ -235,25 +266,32 @@ class PrintedLetterheadsResource extends Resource
                 Actions\EditAction::make()
                     ->label('Update Record')
                     ->icon('heroicon-o-pencil-square')
+                    ->visible(fn($record): bool => empty($record->notes)) // Only visible when notes is empty
                     ->schema(fn($record) => [
-                        Forms\Components\Select::make('status')
+                        Forms\Components\FileUpload::make('scanned_copy')
+                            ->label('Upload Scanned Copy')
+                            ->directory('serial-scans')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
+                            ->maxSize(5120)
+                            ->required()
+                            ->helperText('Upload scanned copy (PDF, JPG, PNG, max 5MB)'),
+
+                        Forms\Components\Select::make('notes')
                             ->label('Print Status')
                             ->options([
                                 'successful' => 'Print Successful',
                                 'wasted' => 'Wasted',
                             ])
-                            ->required(),
+                            ->required()
+                            ->helperText('Select the print status. Once set, this record cannot be edited further.'),
 
                         Forms\Components\TextInput::make('serial_number')
                             ->label('Serial Number')
                             ->numeric()
                             ->visible(fn() => $record->canEditSerial())
                             ->rules(['integer'])
-                            ->helperText("If you need to adjust the serial, update it here."),
-
-                        Forms\Components\FileUpload::make('scanned_copy')
-                            ->label('Replace Scan (Optional)')
-                            ->directory('serial-scans'),
+                            ->helperText("If you need to adjust the serial, update it here.")
+                            ->disabled(fn($record): bool => !empty($record->notes)),
                     ])
                     ->action(function ($record, array $data) {
                         $record->update($data);
