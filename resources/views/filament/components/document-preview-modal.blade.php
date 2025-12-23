@@ -6,80 +6,71 @@
                 {{ $fileName }}
             </h4>
             <p class="text-sm text-gray-500 dark:text-gray-400">
-                @if ($isImage)
-                    Image File
-                @elseif ($isPDF)
-                    PDF Document
-                @else
-                    Document File
-                @endif
+                {{ $isImage ? 'Image Preview' : ($isPDF ? 'PDF Document' : 'File') }}
             </p>
         </div>
-
-        {{-- Download button --}}
-        <a
+        <x-filament::button
+            tag="a"
             href="{{ $fileUrl }}"
-            download
-            class="fi-btn fi-btn-size-sm fi-btn-color-primary"
+            download="{{ $fileName }}"
+            target="_blank"
+            size="sm"
+            icon="heroicon-m-arrow-down-tray"
+            iconSize="sm"
         >
-            <span class="fi-btn-icon">
-                <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
-            </span>
-            <span>Download</span>
-        </a>
+            Download
+        </x-filament::button>
     </div>
 
-    {{-- Preview --}}
-    <div class="rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
+    {{-- Preview Area --}}
+    <div class="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
         @if ($isImage)
-            <img
-                src="{{ $fileUrl }}"
-                alt="Document Preview"
-                class="max-h-[70vh] w-full object-contain"
-            >
-        @elseif ($isPDF)
-            <div class="flex flex-col items-center justify-center gap-3 p-6 text-center">
-                <x-heroicon-o-document
-                    class="h-8 w-8 text-gray-400"
-                />
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    PDF preview is not available in the modal.
-                </p>
-                <a
-                    href="{{ $fileUrl }}"
-                    target="_blank"
-                    class="fi-btn fi-btn-size-sm fi-btn-color-gray"
+            <div class="flex justify-center p-4">
+                <img 
+                    src="{{ $fileUrl }}" 
+                    alt="Preview" 
+                    class="max-h-[60vh] w-auto object-contain rounded shadow-sm"
                 >
-                    <span class="fi-btn-icon">
-                        <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4" />
-                    </span>
-                    <span>Open PDF</span>
-                </a>
+            </div>
+        @elseif ($isPDF)
+            <div class="space-y-2">
+                {{-- Embed PDF via Iframe --}}
+                <iframe 
+                    src="{{ $fileUrl }}#toolbar=1&view=FitH" 
+                    class="w-full h-[60vh]" 
+                    frameborder="0"
+                >
+                    <p>Your browser does not support PDFs. 
+                        <a href="{{ $fileUrl }}" download="{{ $fileName }}">Download instead</a>.
+                    </p>
+                </iframe>
             </div>
         @else
-            <div class="flex flex-col items-center justify-center gap-3 p-6 text-center">
-                <x-heroicon-o-document
-                    class="h-8 w-8 text-gray-400"
+            {{-- Generic File Placeholder --}}
+            <div class="flex flex-col items-center justify-center gap-3 p-12 text-center">
+                <x-filament::icon
+                    icon="heroicon-o-document-text"
+                    class="h-16 w-16 text-gray-300 dark:text-gray-600"
                 />
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Document preview is not available.
+                    Preview not supported for this file type.
                 </p>
-                <a
+                <x-filament::button
+                    tag="a"
                     href="{{ $fileUrl }}"
+                    download="{{ $fileName }}"
                     target="_blank"
-                    class="fi-btn fi-btn-size-sm fi-btn-color-gray"
+                    size="sm"
+                    icon="heroicon-m-arrow-down-tray"
                 >
-                    <span class="fi-btn-icon">
-                        <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4" />
-                    </span>
-                    <span>Open Document</span>
-                </a>
+                    Download File
+                </x-filament::button>
             </div>
         @endif
     </div>
 
-    {{-- Footer note --}}
-    <p class="text-xs text-gray-500 dark:text-gray-400">
-        Use the download button to save a copy of this document.
+    {{-- Helper Note --}}
+    <p class="text-xs text-gray-400 text-center">
+        If the file doesn't load, please check your storage permissions or try downloading.
     </p>
 </div>

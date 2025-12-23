@@ -15,9 +15,10 @@ class UserForm
                     ->maxLength(255),
                 
                 \Filament\Forms\Components\TextInput::make('email')
-                    ->email()
                     ->required()
                     ->maxLength(255)
+                    ->label('username')
+                    ->type('text')
                     ->unique(\App\Models\User::class, 'email', ignoreRecord: true),
                 
                 \Filament\Forms\Components\TextInput::make('password')
@@ -40,6 +41,7 @@ class UserForm
                         'manager' => 'Manager',
                         'sm' => 'Senior Manager',
                         'user' => 'User',
+                        'management'=>'HOD and DDs'
                     ])
                     ->default('user')
                     ->required(),
@@ -47,8 +49,8 @@ class UserForm
                 \Filament\Forms\Components\Toggle::make('is_active')
                     ->default(true),
                 
-                \Filament\Forms\Components\DateTimePicker::make('email_verified_at')
-                    ->label('Email Verified At'),
+                // \Filament\Forms\Components\DateTimePicker::make('email_verified_at')
+                //     ->label('Email Verified At'),
             ]);
     }
 }

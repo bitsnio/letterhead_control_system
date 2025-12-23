@@ -441,86 +441,86 @@ class BulkPrint extends Page
         return $content;
     }
 
-    public function print(): void
-    {
-        $data = $this->form->getState();
-        $validation = $this->validateAllTemplates($data);
+    // public function print(): void
+    // {
+    //     $data = $this->form->getState();
+    //     $validation = $this->validateAllTemplates($data);
 
-        if (!$validation['success']) {
-            Notification::make()
-                ->danger()
-                ->title('Validation Error')
-                ->body($validation['message'])
-                ->send();
-            return;
-        }
+    //     if (!$validation['success']) {
+    //         Notification::make()
+    //             ->danger()
+    //             ->title('Validation Error')
+    //             ->body($validation['message'])
+    //             ->send();
+    //         return;
+    //     }
 
-        try {
-            DB::beginTransaction();
+    //     try {
+    //         DB::beginTransaction();
 
-            $globalLetterheadId = $data['global_letterhead_id'];
-            $letterhead = Letterhead::findOrFail($globalLetterheadId);
+    //         $globalLetterheadId = $data['global_letterhead_id'];
+    //         $letterhead = Letterhead::findOrFail($globalLetterheadId);
 
-            // Create a single print job for all templates
-            $printJob = PrintJob::create([
-                'user_id' => auth()->id(),
-                'templates' => $this->templates->pluck('id')->toArray(),
-                'variable_data' => collect($data['templates'])->mapWithKeys(function ($templateData, $templateId) {
-                    return [$templateId => $templateData['variable_data']];
-                })->toArray(),
-                'quantity' => collect($data['templates'])->sum('quantity'),
-                'start_serial' => collect($data['templates'])->min('start_serial'),
-                'end_serial' => collect($data['templates'])->max('end_serial'),
-                'letterhead_id' => $globalLetterheadId,
-                'status' => 'pending',
-            ]);
+    //         // Create a single print job for all templates
+    //         $printJob = PrintJob::create([
+    //             'user_id' => auth()->id(),
+    //             'templates' => $this->templates->pluck('id')->toArray(),
+    //             'variable_data' => collect($data['templates'])->mapWithKeys(function ($templateData, $templateId) {
+    //                 return [$templateId => $templateData['variable_data']];
+    //             })->toArray(),
+    //             'quantity' => collect($data['templates'])->sum('quantity'),
+    //             'start_serial' => collect($data['templates'])->min('start_serial'),
+    //             'end_serial' => collect($data['templates'])->max('end_serial'),
+    //             'letterhead_id' => $globalLetterheadId,
+    //             'status' => 'pending',
+    //         ]);
 
-            // Allocate serials for the entire range
-            $totalStartSerial = collect($data['templates'])->min('start_serial');
-            $totalEndSerial = collect($data['templates'])->max('end_serial');
+    //         // Allocate serials for the entire range
+    //         $totalStartSerial = collect($data['templates'])->min('start_serial');
+    //         $totalEndSerial = collect($data['templates'])->max('end_serial');
 
-            $allocated = $letterhead->allocateSerials($printJob, $totalStartSerial, $totalEndSerial);
+    //         $allocated = $letterhead->allocateSerials($printJob, $totalStartSerial, $totalEndSerial);
 
-            if (!$allocated) {
-                throw new \Exception("Failed to allocate serials for the print job.");
-            }
+    //         if (!$allocated) {
+    //             throw new \Exception("Failed to allocate serials for the print job.");
+    //         }
 
-            $printJob->markAsCompleted();
+    //         $printJob->markAsCompleted();
 
-            DB::commit();
+    //         DB::commit();
 
-            // Also process content for preview even when printing directly
-            $renderedContent = [];
-            foreach ($this->templates as $template) {
-                $templateData = $data['templates'][$template->id] ?? [];
-                $variableData = $templateData['variable_data'] ?? [];
-                $content = $template->content ?? '';
-                $renderedContent[$template->id] = $this->replaceVariables($content, $variableData);
-            }
+    //         // Also process content for preview even when printing directly
+    //         $renderedContent = [];
+    //         foreach ($this->templates as $template) {
+    //             $templateData = $data['templates'][$template->id] ?? [];
+    //             $variableData = $templateData['variable_data'] ?? [];
+    //             $content = $template->content ?? '';
+    //             $renderedContent[$template->id] = $this->replaceVariables($content, $variableData);
+    //         }
 
-            session([
-                'bulk_print_data' => $data,
-                'bulk_print_templates' => $this->templates->pluck('id')->toArray(),
-                'bulk_print_rendered_content' => $renderedContent,
-                'print_job_id' => $printJob->id,
-            ]);
+    //         session([
+    //             'bulk_print_data' => $data,
+    //             'bulk_print_templates' => $this->templates->pluck('id')->toArray(),
+    //             'bulk_print_rendered_content' => $renderedContent,
+    //             'print_job_id' => $printJob->id,
+    //         ]);
 
-            Notification::make()
-                ->success()
-                ->title('Print Job Created')
-                ->body('All templates processed successfully with consecutive serial numbers.')
-                ->send();
+    //         Notification::make()
+    //             ->success()
+    //             ->title('Print Job Created')
+    //             ->body('All templates processed successfully with consecutive serial numbers.')
+    //             ->send();
 
-            $this->redirect(route('filament.admin.pages.bulk-print-preview'));
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            Notification::make()
-                ->danger()
-                ->title('Print Failed')
-                ->body('Error: ' . $e->getMessage())
-                ->send();
-        }
-    }
+    //         $this->redirect(route('filament.admin.pages.bulk-print-preview'));
+    //     } catch (\Throwable $e) {
+    //         DB::rollBack();
+    //         Notification::make()
+    //             ->danger()
+    //             ->title('Print Failed')
+    //             ->body('Error: ' . $e->getMessage())
+    //             ->send();
+    //     }
+    // }
 
     // protected function validateAllTemplates(array $data): array
     // {
@@ -758,11 +758,11 @@ class BulkPrint extends Page
                 ->color('gray')
                 ->action('preview'),
 
-            Action::make('print')
-                ->label('Print Now')
-                ->icon('heroicon-o-printer')
-                ->color('primary')
-                ->action('print'),
+            // Action::make('print')
+            //     ->label('Print Now')
+            //     ->icon('heroicon-o-printer')
+            //     ->color('primary')
+            //     ->action('print'),
 
             Action::make('cancel')
                 ->label('Cancel')

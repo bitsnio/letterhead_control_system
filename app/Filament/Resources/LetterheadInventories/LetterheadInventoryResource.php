@@ -13,10 +13,15 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use App\Traits\HasNavigationPermission;
 
 class LetterheadInventoryResource extends Resource
 {
+    use HasNavigationPermission;
+    
     protected static ?string $model = LetterheadInventory::class;
+
+    protected static ?string $navigationLabel = 'Recieve Letterheads';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 

@@ -133,15 +133,47 @@ class PrintedLetterheadsResource extends Resource
                     ->sortable()
                     ->searchable(),
 
-                // Tables\Columns\TextColumn::make('letterhead.batch_name')
-                //     ->label('Batch Name')
-                //     ->sortable()
-                //     ->searchable(),
+                Tables\Columns\TextColumn::make('template_name')
+                    ->label('Template')
+                    ->state(function ($record): string {
+                        static $templateCache = [];
 
-                Tables\Columns\TextColumn::make('printJob.templates_count')
-                    ->label('Templates')
-                    ->formatStateUsing(fn($state, $record) => count($record->printJob->templates ?? [])),
+                        $job = $record->printJob;
+                        $serial = $record->serial_number;
+                        $start = $job->start_serial;
 
+                        // 1. Calculate the Print Sequence (Key in variable_data)
+                        // If start is 1000 and current is 1002, this is the 3rd page (Key "3")
+                        $pageNumber = ($serial - $start) + 1;
+                        $pageKey = (string) $pageNumber;
+
+                        // 2. Access variable_data to see what happened on this specific page
+                        $jobData = $job->variable_data ?? [];
+                        $templatesUsed = $job->templates ?? [];
+
+                        // Logic: If variable_data has a specific entry for this page, 
+                        // we need to determine which template it belongs to.
+
+                        // If your JSON structure doesn't explicitly store the Template ID 
+                        // inside the variable_data, we fallback to the sequence in 'templates'
+                        $targetId = $templatesUsed[$pageNumber - 1] ?? null;
+
+                        if (!$targetId) {
+                            // Fallback: If 'templates' only has 3 items but 5 pages were printed,
+                            // it means the templates array is not a 1:1 mapping.
+                            // We then assume the last template is used for all remaining serials.
+                            $targetId = end($templatesUsed);
+                        }
+
+                        if (!$targetId) return 'N/A';
+
+                        // 3. Fetch from Cache
+                        if (!isset($templateCache[$targetId])) {
+                            $templateCache[$targetId] = \App\Models\LetterheadTemplate::find($targetId)?->name ?? "Template #{$targetId}";
+                        }
+
+                        return $templateCache[$targetId];
+                    }),
                 Tables\Columns\TextColumn::make('used_at')
                     ->label('Used Date')
                     ->dateTime()
@@ -211,8 +243,8 @@ class PrintedLetterheadsResource extends Resource
             ->recordActions([
                 Action::make('viewDocument')
                     ->label('View Scan')
-                    ->color('success')
                     ->icon('heroicon-o-eye')
+                    ->iconSize('sm') // Add this to control icon size
                     ->color('gray')
                     ->visible(fn($record): bool => !empty($record->scanned_copy))
                     ->modalHeading('View Uploaded Document')

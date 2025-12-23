@@ -6,6 +6,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Table;
+use Illuminate\Container\Attributes\DB;
 
 class UsersTable
 {
@@ -26,8 +27,9 @@ class UsersTable
                     ->color(fn (string $state): string => match ($state) {
                         'admin' => 'danger',
                         'manager' => 'warning',
-                        'staff' => 'info',
-                        'printer' => 'success',
+                        'sm' => 'info',
+                        'management' => 'success',
+                        default => 'gray'
                     }),
                 
                 \Filament\Tables\Columns\IconColumn::make('is_active')
